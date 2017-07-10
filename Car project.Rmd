@@ -1,0 +1,130 @@
+---
+title: 'Motor Trend: Relationship between transmission type and miles per gallon (MPG)'
+author: "Diane Leigh"
+date: "July 7, 2017"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(tidyverse); library(data.table); library(GGally);library(car); library(MASS)
+
+data(mtcars)
+```
+
+## Overview:
+
+Here we examine the mtcars dataset to explore the relationship between multiple variables and miles per gallon (MPG). We are particularly interested in two questions:
+1. Is an automatic or manual transmission better for MPG?
+2. What is the difference in MPG between automatic and manual transmissioins?
+
+## Exploratory Data Analysis
+Using "?mtcars" we know the data set contains 32 observations (Car Models) on 11 variables.
+
+[, 1]	 mpg	 Miles/(US) gallon
+[, 2]	 cyl	 Number of cylinders
+[, 3]	 disp	 Displacement (cu.in.)
+[, 4]	 hp	 Gross horsepower
+[, 5]	 drat	 Rear axle ratio
+[, 6]	 wt	 Weight (1000 lbs)
+[, 7]	 qsec	 1/4 mile time
+[, 8]	 vs	 V/S
+[, 9]	 am	 Transmission (0 = automatic, 1 = manual)
+[,10]	 gear	 Number of forward gears
+[,11]	 carb	 Number of carburetors
+
+
+
+
+```{r expl_data}
+carsdt <- as.data.table(mtcars)
+ggpairs(carsdt, lower = list(continuous = wrap("smooth", colour="blue")),diag=list(continuous=wrap("barDiag", bins =10, colour="blue", fill = "blue")), upper=list(list(corSize=15)), axisLabels='show')
+## set vs, am, gear, carb and cyl as factor variables
+vars.factors <- c('cyl','vs', 'am', 'gear', 'carb')
+carsdt[, (vars.factors) := lapply(.SD, as.factor), .SDcols=vars.factors]
+
+```
+
+```{r plots}
+g = ggplot(carsdt, aes(x = factor(am, labels = c("Automatic", "Manual")), y = mpg)) 
+g = g + xlab("Transmission Type") 
+g = g + ylab("Miles Per Gallon (MPG)") 
+g = g + geom_boxplot() 
+g
+```
+
+```{r t-test}
+tt = t.test(mpg ~ am, mtcars)
+```
+
+```{r regres}
+fit <- lm(mpg~factor(am), carsdt)
+e <- resid(fit)
+carsdt$e <- resid(lm(mpg~factor(am), carsdt)) ##add residuals to data table
+h = ggplot(carsdt, aes(mpg, e))
+h = h + xlab("Miles Per Gallon (MPG)") 
+h = h + ylab("Residuals") 
+h = h + geom_point(size = 7, colour = "black", alpha=0.5) 
+h = h + geom_point(size = 5, colour = "blue", alpha=0.2) 
+h = h + geom_hline(yintercept = 0, size = 2)
+h
+
+```
+
+```{r regres2}
+## vector containing residuals around average MPG and residuals from regression with mpg as outcome and transmission type as predictor (variation around regression line)
+e <- c(resid(lm(mpg~1, carsdt)), resid(lm(mpg~factor(am), carsdt)))
+##label residuals
+fit2 = factor(c(rep("Itc", nrow(carsdt)), rep("Itc, slope", nrow(carsdt))))
+h2 = ggplot(data.frame(e = e, fit2 = fit2), aes(y = e, x = fit2, fill = fit2)) 
+h2 = h2 + geom_dotplot(binaxis = "y", dotsize = .1, stackdir = "center", binwidth = 20) 
+h2 = h2 + xlab("Fitting approach") 
+h2 = h2 + ylab("Residual MPG") 
+h2
+
+```
+
+
+## Model selection
+
+```{r vif}
+
+fit <- lm(mpg~., carsdt)
+vif(fit) ## variance inflation
+sqrt(vif(fit)) ## sd inflation
+
+
+```
+
+```{r cars}
+
+summary(cars)
+fit <- lm(mpg~factor(am), carsdt)
+fit1 <- update(fit, mpg~am + factor(cyl) + disp)
+fit2 <- update(fit, mpg~am + factor(cyl) + disp + hp + drat)
+fit3 <- update(fit, mpg~am + factor(cyl) + disp + hp + drat + wt + qsec)
+fit4 <- update(fit, mpg~am + factor(cyl) + disp + hp + drat + wt + qsec +factor(vs) + factor(gear) +factor(carb))
+anova(fit, fit1, fit2, fit3, fit4)
+```
+Using nested model testing we can see that the variables in Model 2(cyl, disp) are necessary, while those in Model 3 (hp, drat) are unecessary. Similarly, the variables in Model 4(wt, qsec) are necessary while those in model 5 (vs, gear, carb) are uncessary.
+
+
+## Results
+
+## Executive summary
+
+This is an R Markdown document. Markdown is a simple formatting syntax for authoring HTML, PDF, and MS Word documents. For more details on using R Markdown see <http://rmarkdown.rstudio.com>.
+
+When you click the **Knit** button a document will be generated that includes both content as well as the output of any embedded R code chunks within the document. You can embed an R code chunk like this:
+
+
+
+## Including Plots
+
+You can also embed plots, for example:
+
+```{r pressure, echo=FALSE}
+plot(pressure)
+```
+
+Note that the `echo = FALSE` parameter was added to the code chunk to prevent printing of the R code that generated the plot.
